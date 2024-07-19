@@ -1,0 +1,94 @@
+---
+# tasks file for local_accounts
+# the ansible.builtin.user module must use hashed passwords on Linux. See: https://docs.ansible.com/ansible/latest/collections/ansible/builtin/user_module.html
+- name: main | Set root password
+  ansible.builtin.user:
+    name: root
+    password: "{{ root_password | password_hash('sha512', password_salt) }}"
+    #password: "{{ root_password | password_hash('sha512_crypt', salt=password_salt) }}"
+  become: true
+  no_log: true
+  tags: local_accounts
+
+- name: main | Create local system groups # these are groups that only have gid values
+  ansible.builtin.group:
+    name: "{{ item.group_name }}"
+    gid: "{{ item.gid | default(omit)}}"
+  become: true
+  with_items: "{{ local_accounts_default_groups + local_accounts_additional_groups }}"
+  tags: local_accounts
+
+- name: main | Create local user groups # these are for users with uids and gids
+  ansible.builtin.group:
+    name: "{{ item.username }}"
+    gid: "{{ item.gid | default(omit)}}"
+  become: true
+  no_log: true
+  with_items: "{{ local_accounts_default_users + local_accounts_additional_users }}"
+  tags: local_accounts
+
+# The ternary use here is complicated. item.password must always be defined with something. a "*" represents no password, "!!" means a locked account, "$6$" represemts a hashed password, any other value and it will generate a hash on the fly 
+# using {{ password_salt }} var.  If password isn't defined this will error out. Maybe there is some other way to detect and hash plain text passwords when ansible.builtin.user only accepts hashed values.
+- name: main | Hash passwords if they are not already hashed
+  set_fact:
+    users_to_create: "{{ users_to_create | default([]) + [item | combine({'final_password': (item.password is defined and (item.password.startswith('$6$') or item.password == '!!' or item.password == '*')) | ternary(item.password, item.password | password_hash('sha512', password_salt))})] }}"
+  with_items: "{{ local_accounts_default_users + local_accounts_additional_users }}"
+  no_log: true
+  tags: local_accounts
+
+- name: main | Create local users
+  ansible.builtin.user:
+    name: "{{ item.username }}"
+    uid: "{{ item.uid | default(omit) }}"
+    shell: "{{ item.shell | default('/bin/bash') }}"
+    group: "{{ item.group | default(omit) }}"
+    groups: "{{ item.groups | default(omit) }}"
+    append: "{{ item.append | default(false) }}"
+    home: "{{ item.home_dir | default('/home/'+item.username) }}"
+    create_home: "{{ item.create_home | default(true) }}"
+    password: "{{ item.final_password | default('!!') }}"
+    comment: "{{ item.comment | default(omit) }}"
+  become: true
+  no_log: true
+  with_items: "{{ users_to_create }}"
+  tags: local_accounts
+
+- name: main | Add additional group members
+  ansible.builtin.command:
+    cmd: usermod -a -G "{{ item.groups }}" "{{ item.username }}"
+  with_items: "{{ local_accounts_additional_group_members }}"
+  become: true
+  when: local_accounts_additional_group_members is defined
+  tags: local_accounts
+
+- name: main | Add SSH Keys
+  ansible.posix.authorized_key:
+    user: "{{ item.0.username }}"
+    key: "{{ item.1 }}"
+    state: "{{ item.0.state | default('present') }}"
+    path: "{{ item.0.path | default(omit) }}"
+    manage_dir: "{{ item.0.manage_dir | default(true) }}"
+  become: true
+  when: item.0.username is defined
+  with_subelements:
+    - "{{ local_accounts_default_keys + local_accounts_additional_keys }}"
+    - keys
+  loop_control:
+    label:  "{{ item.0.username }}:{{ item.1 }}"
+  tags: local_accounts
+
+- name: Manage .bashrc files for service accounts
+  ansible.builtin.template:
+    src: "{{ bashrc_template }}"
+    dest: "{{ item.home_dir | default('/home/'+item.username) }}/.bashrc"
+    owner: "{{ item.username }}"
+    group: "{{ item.group | default(omit) }}"
+    mode: '0644'
+  become: true
+  when: item.manage_bashrc | default(false)
+  loop: "{{ local_accounts_default_users + local_accounts_additional_users }}"
+  vars:
+    bashrc_lines: "{{ item.bashrc_lines | default([]) }}"
+  ignore_errors: yes
+  tags: local_accounts
+...
