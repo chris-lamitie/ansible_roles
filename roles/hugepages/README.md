@@ -4,7 +4,7 @@ The hugepages role installs and manages various huge page management methods.
 Further reading: https://docs.kernel.org/admin-guide/mm/hugetlbpage.html and https://docs.kernel.org/admin-guide/mm/transhuge.html
 
 ## Requirements
-None.
+- ansible.posix: version: ">=1.5.4"
 
 ## Dependencies
 None.
