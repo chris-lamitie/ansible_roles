@@ -1,0 +1,22 @@
+---
+# sub-tasks for managing huge pages kernel settings via grubby.
+- name: hugepages_grub | Manage grub block | Get grubby info
+  ansible.builtin.command: grubby --info=ALL
+  register: grubby_info
+  become: true
+  changed_when: false
+
+- name: hugepages_grub | Hugepages parameters exist in Kernel cmdline
+  ansible.builtin.debug:
+    msg: "Hugepages parameters exist in Kernel cmdline. Use 'grubby --remove-args' then run this play again."
+  when:
+    - "'hugepages' in grubby_info.stdout"
+
+- name: hugepages_grub | Manage grub block | Set HugePage size kernel parameters
+  ansible.builtin.command: 'grubby --update-kernel=ALL --args="{{ hugepages_grub_arguments }}"'
+  become: true
+  when:
+    - "'hugepages' not in grubby_info.stdout"
+  register: grubby_update_results
+  changed_when: grubby_update_results.rc == 0
+...
