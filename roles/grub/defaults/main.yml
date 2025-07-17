@@ -1,0 +1,16 @@
+---
+# defaults file for roles/grub
+grub_managed: false
+grub_timeout: "5"
+grub_distributor: "\"$(sed 's, release .*$,,g' /etc/system-release)\""
+grub_default: "saved"
+grub_disable_submenu: "true"
+grub_terminal_output: "console"
+grub_cmdline_linux: "crashkernel=auto ipv6.disable=1 consoleblank=0 selinux=0"
+grub_disable_recovery: "true"
+# grub_enable_blscfg will be set only for RedHat family >=8
+grub_enable_blscfg: true
+grub_mkconfig_command: "/sbin/grub2-mkconfig -o {{ grub_cfg_file }}"
+grub_timeout_style: "menu"
+grub_manual_config: false
+...
