@@ -1,0 +1,73 @@
+---
+# tasks file for roles/hugepages
+- name: Install hugepages packages
+  ansible.builtin.package:
+    name: libhugetlbfs-utils
+    state: present
+  become: true
+  when:
+    - hugepages_managed | bool
+    - ansible_distribution_major_version == "7"
+
+- name: Run hugepages_group.yml
+  ansible.builtin.include_tasks:
+    file: hugepages_group.yml
+    apply:
+      tags:
+        - hugepages
+  when:
+    - hugepages_managed | bool
+    - hugepages_group_name | length > 0
+  tags:
+    - hugepages
+
+- name: Run hugepages_sysctl.yml
+  ansible.builtin.include_tasks:
+    file: hugepages_sysctl.yml
+    apply:
+      tags:
+        - hugepages
+  when:
+    - hugepages_managed | bool
+    - hugepages_sysctl | bool
+    - hugepages_count > 0
+  tags:
+    - hugepages
+
+- name: Run hugepages_grub.yml
+  ansible.builtin.include_tasks:
+    file: hugepages_grub.yml
+    apply:
+      tags:
+        - hugepages
+  when:
+    - hugepages_managed | bool
+    - hugepages_grub | bool
+  tags:
+    - hugepages
+
+- name: Run hugepages_numa_nodes.yml
+  ansible.builtin.include_tasks:
+    file: hugepages_numa_nodes.yml
+    apply:
+      tags:
+        - hugepages
+  when:
+    - hugepages_managed | bool
+    - hugepages_numa_nodes | bool
+    - hugepages_numa_node_page_settings
+  tags:
+    - hugepages
+
+- name: Run transparent_hugepages.yml
+  ansible.builtin.include_tasks:
+    file: transparent_hugepages.yml
+    apply:
+      tags:
+        - hugepages
+  when:
+    - hugepages_managed | bool
+    - hugepages_thp_managed | bool
+  tags:
+    - hugepages
+...
