@@ -1,0 +1,32 @@
+---
+# sub-tasks for managing Transparent Huge Pages settings
+- name: transparent_hugepages | Get current THP enabled setting
+  ansible.builtin.shell: "set -o pipefail && cat /sys/kernel/mm/transparent_hugepage/enabled | awk -F'[][]' '{print $2}'" # Uses shell command because of '|'
+  when: hugepages_thp_enabled | length > 0
+  register: current_thp_enabled_setting
+  changed_when: false
+
+- name: transparent_hugepages | Set enabled THP Configuration
+  ansible.builtin.shell: "set -o pipefail && echo {{ hugepages_thp_enabled }} > /sys/kernel/mm/transparent_hugepage/enabled" # Uses shell command because of '>'
+  when:
+    - hugepages_thp_enabled | length > 0
+    - hugepages_thp_enabled != current_thp_enabled_setting.stdout
+  become: true
+  register: set_thp_enabled_result
+  changed_when: set_thp_enabled_result.rc == 0
+
+- name: transparent_hugepages | Get current THP defrag setting
+  ansible.builtin.shell: "set -o pipefail && cat /sys/kernel/mm/transparent_hugepage/defrag | awk -F'[][]' '{print $2}'"
+  when: hugepages_thp_defrag | length > 0
+  register: current_thp_defrag_setting
+  changed_when: false
+
+- name: transparent_hugepages | Set defrag THP Configuration
+  ansible.builtin.shell: "set -o pipefail && echo {{ hugepages_thp_defrag }} > /sys/kernel/mm/transparent_hugepage/defrag"
+  when:
+    - hugepages_thp_defrag | length > 0
+    - hugepages_thp_defrag != current_thp_defrag_setting.stdout
+  become: true
+  register: set_thp_defrag_result
+  changed_when: set_thp_defrag_result.rc == 0
+...
