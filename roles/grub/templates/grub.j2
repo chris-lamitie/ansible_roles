@@ -1,0 +1,11 @@
+GRUB_TIMEOUT={{ grub_timeout }}
+GRUB_TIMEOUT_STYLE={{ grub_timeout_style }}
+GRUB_DISTRIBUTOR={{ grub_distributor }}
+GRUB_DEFAULT={{ grub_default }}
+GRUB_DISABLE_SUBMENU={{ grub_disable_submenu }}
+GRUB_TERMINAL_OUTPUT="{{ grub_terminal_output }}"
+GRUB_CMDLINE_LINUX="{{ grub_cmdline_linux }}"
+GRUB_DISABLE_RECOVERY="{{ grub_disable_recovery }}"
+{% if ansible_facts['distribution_version'] | int >= 8 %}
+GRUB_ENABLE_BLSCFG={{ grub_enable_blscfg | lower }}
+{% endif %}
