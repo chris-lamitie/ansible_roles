@@ -1,0 +1,12 @@
+---
+# sub-tasks for huge pages in sysctl
+- name: hugepages_sysctl | Sysctl set vm.nr_hugepages
+  ansible.posix.sysctl:
+    name: vm.nr_hugepages
+    value: "{{ hugepages_count }}"
+    state: "present"
+  reload: true
+  become: true
+  when:
+    - hugepages_count > 0
+...
