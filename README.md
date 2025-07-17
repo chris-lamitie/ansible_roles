@@ -1,4 +1,4 @@
-# local_accounts
-An ansible role for managing local accounts on Linux systems.
+# ansible_roles
+An collection of ansible roles for managing Linux systems.
 
-See roles/local_accounts/README.md for more
+See each role's README.md for more informatin.
