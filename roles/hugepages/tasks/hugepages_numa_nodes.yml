@@ -1,0 +1,46 @@
+---
+# sub-tasks for managing huge pages NUMA nodes via writing to the /sys file system.
+- name: hugepages_numa_nodes | Convert hugepages_size to kB for path
+  ansible.builtin.set_fact:
+    hugepages_path: "hugepages-2048kB"
+  when:
+    - hugepages_size == "2M"
+
+- name: hugepages_numa_nodes | Convert hugepages_size to kB for path
+  ansible.builtin.set_fact:
+    hugepages_path: "hugepages-1048576kB"
+  when:
+    - hugepages_size == "1G"
+
+# What is with this huge shell command? It is to make ansible-lint happy while also being idempotent. We can use 'changed_when'
+# based on output from the shell command. It will only echo to the /sys file system if the desired value differes from the current value.
+- name: hugepages_numa_nodes | Set hugepages per NUMA node
+  ansible.builtin.shell: |
+    HUGEPAGE_FILE="/sys/devices/system/node/{{ hugepages_numa_settings.node }}/hugepages/{{ hugepages_path }}/nr_hugepages"
+    DESIRED_PAGES="{{ hugepages_numa_settings.number_of_pages }}"
+
+    # Read the current value; if file doesn't exist, assume it's not set
+    if [ -f "$HUGEPAGE_FILE" ]; then
+      CURRENT_PAGES=$(cat "$HUGEPAGE_FILE")
+    else
+      CURRENT_PAGES="" # Treat as empty if file not found, which will trigger a change
+    fi
+
+    # Only write if the desired value is different from the current value
+    if [ "$CURRENT_PAGES" != "$DESIRED_PAGES" ]; then
+      echo "$DESIRED_PAGES" > "$HUGEPAGE_FILE"
+      # Indicate that a change occurred
+      echo "ANSIBLE_CHANGED"
+    else
+      # Indicate that no change occurred
+      echo "ANSIBLE_NOT_CHANGED"
+    fi
+  args:
+    executable: /bin/bash
+  loop: "{{ hugepages_numa_node_page_settings }}"
+  loop_control:
+    loop_var: hugepages_numa_settings
+  become: true
+  register: set_hugepages_result
+  changed_when: "'ANSIBLE_CHANGED' in set_hugepages_result.stdout"
+...
