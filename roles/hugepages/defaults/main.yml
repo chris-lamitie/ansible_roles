@@ -1,0 +1,14 @@
+---
+# defaults file for roles/hugepages
+hugepages_managed: false
+hugepages_count: 0
+hugepages_group_name: ""
+hugepages_grub: false
+hugepages_numa_nodes: false
+hugepages_numa_node_page_settings: []
+hugepages_size: 2M # On x86_64 systems, values can only be '2M' or '1G'
+hugepages_sysctl: false
+hugepages_thp_managed: false
+hugepages_thp_defrag: "" # options are 'always' 'defer' 'defer+madvise' 'madvise' (the default) 'never'
+hugepages_thp_enabled: "" # Options are 'always' (the default), 'never', and 'madvise'
+...
