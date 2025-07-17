@@ -1,0 +1,60 @@
+---
+# sub tasks file for roles/grub
+- name: grub | Make manual Kernel changes via grub template and rebuilding Kernel entries.
+  become: true
+  when: grub_manual_config | bool
+  block:
+    # Set a location of grub.cfg file
+    # EFI
+    - name: grub | Set grub.cfg file based on distribution - EFI
+      ansible.builtin.set_fact:
+        grub_cfg_file: "/boot/efi/EFI/{{ ansible_distribution | lower }}/grub.cfg"
+      when:
+        - ansible_facts['mounts'] | selectattr('mount', 'equalto', '/boot/efi') | list | length > 0
+
+    # BIOS
+    - name: grub | Set grub.cfg file based on distribution - BIOS
+      ansible.builtin.set_fact:
+        grub_cfg_file: /boot/grub/grub.cfg
+      when:
+        - ansible_facts['mounts'] | selectattr('mount', 'equalto', '/boot/efi') | list | length == 0
+
+    # The main execution - Applying the grub configuration
+    - name: grub | Apply a new GRUB configuration template
+      ansible.builtin.template:
+        src: grub.j2
+        dest: /etc/default/grub
+        owner: root
+        group: root
+        mode: '0644'
+        backup: true
+      notify: Update grub configuration
+      register: grub_template_results
+      become: true
+
+- name: grub | Make Kernel changes via grubby
+  become: true
+  when: not grub_manual_config | bool
+  block:
+    - name: grub | Check current kernel args
+      ansible.builtin.command: grubby --info=ALL
+      register: grubby_info
+      changed_when: false
+      become: true
+
+    - name: grub | Set fact if any required args are missing
+      ansible.builtin.set_fact:
+        grub_needs_update: true
+      when: >
+        grub_cmdline_linux.split() | difference(
+          grubby_info.stdout | regex_findall('args="([^"]+)"') | join(' ') | split()
+        ) | length > 0
+
+    - name: grub | Use grubby to apply Kernel arguments
+      ansible.builtin.shell: 'set -o pipefail && grubby --update-kernel ALL --args "{{ grub_cmdline_linux }}"'
+      become: true
+      when:
+        - grub_needs_update | default(false)
+      register: grubby_update_results
+      changed_when: grubby_update_results.rc == 0
+...
