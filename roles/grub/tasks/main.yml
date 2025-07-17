@@ -1,0 +1,13 @@
+---
+# tasks file for roles/grub
+- name: Run grub.yml
+  ansible.builtin.include_tasks:
+    file: grub.yml
+    apply:
+      tags:
+        - grub
+  when:
+    - grub_managed | bool
+  tags:
+    - grub
+...
