@@ -1,0 +1,32 @@
+---
+# hugepages group sub-tasks file for roles/hugepages
+- name: hugepages_group | Check if HugePages group exists
+  ansible.builtin.command: getent group {{ hugepages_group_name }}
+  register: hugepages_group_check
+  failed_when: hugepages_group_check.rc == 1
+  changed_when: false
+
+- name: hugepages_group | Create HugePages system group if missing
+  ansible.builtin.group:
+    name: "{{ hugepages_group_name }}"
+    system: true # let's the system pick a gid under 1000
+  become: true
+  when:
+    hugepages_group_check.rc == 2
+
+- name: hugepages_group | Get HugePages group id
+  ansible.builtin.shell: "set -o pipefail && getent group {{ hugepages_group_name }} | awk -F ':' '{print $3}'"
+  register: hugepages_gid
+  changed_when: false
+
+- name: hugepages_group | Set vm.hugetlb_shm_group via sysctl
+  ansible.posix.sysctl:
+    name: vm.hugetlb_shm_group
+    value: "{{ hugepages_gid.stdout }}"
+    state: "present"
+    reload: true
+  become: true
+  when:
+    - hugepages_gid.rc == 0
+    - hugepages_gid.stdout | length > 0
+...
