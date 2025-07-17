@@ -1,0 +1,9 @@
+---
+# handlers file for roles/grub
+- name: Update grub configuration
+  ansible.builtin.command: "{{ grub_mkconfig_command }}"
+  listen: "Update grub configuration"
+  become: true
+  changed_when: false
+  tags: grub
+...
