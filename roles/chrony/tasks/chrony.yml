@@ -1,0 +1,64 @@
+---
+# manage chrony
+- name: chrony | Remove ntpd
+  ansible.builtin.package:
+    name: ntp
+    state: absent
+  become: true
+
+- name: chrony | Add chrony
+  ansible.builtin.package:
+    name: chrony
+    state: present
+  become: true
+
+- name: chrony | Configure Chrony Client
+  ansible.builtin.template:
+    src: chrony.conf.default.j2
+    dest: /etc/chrony.conf
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  become: true
+  notify: Restart chrony
+
+- name: chrony | Create chronyd service override directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/chronyd.service.d/
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+  when:
+    - sfptpd_managed
+
+- name: chrony | Create chronyd service override config
+  ansible.builtin.copy:
+    src: override.conf
+    dest: /etc/systemd/system/chronyd.service.d/override.conf
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify: Restart chrony
+  when:
+    - sfptpd_managed
+
+- name: chrony | Ensure Chronyd client starts at system start and is enabled
+  ansible.builtin.service:
+    name: chronyd
+    state: started
+    enabled: true
+  become: true
+
+- name: chrony | Configure log rotation for chrony logs
+  ansible.builtin.template:
+    src: chrony.logrotate.j2
+    dest: /etc/logrotate.d/chrony
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+...
