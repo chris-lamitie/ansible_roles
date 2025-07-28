@@ -1,10 +1,8 @@
 ---
 # defaults file for local_accounts
+local_accounts_managed: false
 local_accounts_additional_users: []
 local_accounts_additional_groups: []
-local_accounts_additional_keys: []
-
-public_keys: []
-
-bashrc_template: bashrc.j2
+local_accounts_additional_ssh_keys: []
+local_accounts_bashrc_template: bashrc.j2
 ...
