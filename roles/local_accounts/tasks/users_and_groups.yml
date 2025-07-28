@@ -1,0 +1,137 @@
+---
+# roles/local_accounts/tasks/users_and_groups.yml
+# the ansible.builtin.user module must use hashed passwords on Linux. See: https://docs.ansible.com/ansible/latest/collections/ansible/builtin/user_module.html
+- name: users_and_groups | Set root password
+  ansible.builtin.user:
+    name: root
+    password: "{{ root_password | password_hash('sha512', password_salt) }}"
+  become: true
+  no_log: true
+
+- name: users_and_groups | Get info on groups
+  ansible.builtin.getent:
+    database: group
+    split: ':'
+
+# the gid section is checking if there is already a group name with a gid. If so, it will omit changing the gid so file system permissions do not break.
+- name: users_and_groups | Create local system groups safely
+  ansible.builtin.group:
+    name: "{{ local_accounts_groups_item.group_name }}"
+    gid: "{{ (local_accounts_groups_item.gid | string) if (local_accounts_groups_item.gid is defined and (
+          local_accounts_groups_item.group_name not in getent_group or
+          getent_group[local_accounts_groups_item.group_name][1] == local_accounts_groups_item.gid | string)) else omit }}"
+    state: present
+  become: true
+  loop: "{{ local_accounts_default_groups + (local_accounts_additional_groups if local_accounts_additional_groups is defined else []) }}"
+  loop_control:
+    loop_var: local_accounts_groups_item
+  no_log: true
+
+# the ansible.builtin.user module does not create gids, so if gid is specified, this will set that up.
+# the gid section is checking if there is already a group name with a gid. If so, it will omit changing the gid so file system permissions do not break.
+- name: users_and_groups | Create local user groups safely 
+  ansible.builtin.group:
+    name: "{{ local_accounts_groups_item.username }}"
+    gid: "{{ (local_accounts_groups_item.gid | string) if (local_accounts_groups_item.gid is defined and (
+          local_accounts_groups_item.username not in getent_group or
+          getent_group[local_accounts_groups_item.username][1] == local_accounts_groups_item.gid | string)) else omit }}"
+  become: true
+  loop: "{{ local_accounts_default_users + (local_accounts_additional_users if local_accounts_additional_users is defined else []) }}"
+  loop_control:
+    loop_var: local_accounts_groups_item
+  no_log: true
+  when:
+    - local_accounts_groups_item.gid is defined
+
+- name: users_and_groups | Get info on users
+  ansible.builtin.getent:
+    database: passwd
+    split: ':'
+
+# The users_to_create variable is complicated. local_accounts_hash_pwds.password must always be defined with something. a "*" represents no password, "!" means a locked account, "$6$" represemts a hashed password, 
+# any other value and it will generate a hash on the fly using {{ password_salt }} var.  If password isn't defined this will error out. Maybe there is some other way to detect and hash plain text passwords when 
+# ansible.builtin.user only accepts hashed values. Lastly, if the password is not defined, use "!" in place. 
+- name: users_and_groups | Hash passwords if they are not already hashed
+  ansible.builtin.set_fact:
+    users_to_create: >-
+      {{
+        users_to_create | default([]) + [
+          local_accounts_hash_pwds
+          | combine({
+              'final_password': (
+                (
+                  local_accounts_hash_pwds.password is defined and
+                  (
+                    local_accounts_hash_pwds.password.startswith('$6$') or
+                    local_accounts_hash_pwds.password in ['!', '*']
+                  )
+                )
+                | ternary(
+                    local_accounts_hash_pwds.password,
+                    local_accounts_hash_pwds.password | password_hash('sha512', password_salt)
+                  )
+              )
+              if local_accounts_hash_pwds.password is defined
+              else '!'
+            })
+        ]
+      }}
+  loop: "{{ local_accounts_default_users + (local_accounts_additional_users if local_accounts_additional_users is defined else []) }}"
+  loop_control:
+    loop_var: local_accounts_hash_pwds
+  no_log: true
+
+# the uid section is checking if there is already a user name with a uid. If so, it will omit changing the uid so file system permissions do not break.
+- name: users_and_groups | Create local users safely
+  ansible.builtin.user:
+    name: "{{ local_accounts_create_users.username }}"
+    uid: "{{ (local_accounts_create_users.uid | string) if (local_accounts_create_users.uid is defined and (
+            local_accounts_create_users.username not in getent_passwd or
+            getent_passwd[local_accounts_create_users.username][2] == local_accounts_create_users.uid | string)) else omit }}"
+    shell: "{{ local_accounts_create_users.shell | default('/bin/bash') }}"
+    group: "{{ local_accounts_create_users.group | default(omit) }}"
+    groups: "{{ local_accounts_create_users.groups | default(omit) }}"
+    append: "{{ local_accounts_create_users.append | default(false) }}"
+    home: "{{ local_accounts_create_users.home_dir | default('/home/' + local_accounts_create_users.username) }}"
+    create_home: "{{ local_accounts_create_users.create_home | default(true) }}"
+    password: "{{ local_accounts_create_users.final_password | default('!!') }}"
+    comment: "{{ local_accounts_create_users.comment | default(omit) }}"
+    state: "{{ local_accounts_create_users.state | default('present') }}"
+  become: true
+  loop: "{{ users_to_create }}"
+  loop_control:
+    loop_var: local_accounts_create_users
+  no_log: true
+
+- name: users_and_groups | Add additional group members
+  ansible.builtin.command:
+    cmd: usermod -a -G "{{ local_accounts_group_members.groups }}" "{{ local_accounts_group_members.username }}"
+  become: true
+  when: local_accounts_additional_group_members is defined
+  loop: "{{ local_accounts_additional_group_members }}"
+  loop_control:
+    loop_var: local_accounts_group_members
+
+- name: users_and_groups | Check if /var/lib/AccountsService/users exists
+  ansible.builtin.stat:
+    path: /var/lib/AccountsService/users
+  become: true
+  register: accountsservice_users_result
+
+- name: users_and_groups | Create user desktop settings
+  ansible.builtin.template:
+    src: var.lib.AccountsService.users.username.j2
+    dest: /var/lib/AccountsService/users/{{ local_accounts_users_item.username }}
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  when:
+    - accountsservice_users_result.stat.exists
+    - local_accounts_users_item.desktop is defined
+  become: true
+  loop: "{{ users_to_create }}"
+  loop_control:
+    loop_var: local_accounts_users_item
+  no_log: true
+...
