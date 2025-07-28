@@ -1,0 +1,29 @@
+---
+# defaults file for roles/onload
+onload_managed: false
+onload_kmod: true # install onload via kmod, requires pre-compiled onload and onload-kmod-* rpms.
+onload_dkms: false # install onload via dkms
+
+onload_kmod_prereqs: # the following list are prereqs for onload-kmod
+  - sfutils
+onload_dkms_prereqs: # the following list are prereqs for onload-dkms
+  - "kernel-devel-{{ ansible_kernel }}" # requriest gather_facts: true for this to work.
+  - "kernel-headers-{{ ansible_kernel }}"
+  - "kernel-modules-{{ ansible_kernel }}"
+  - libpcap-devel
+  - dkms
+  - gcc-c++
+  - sfutils
+
+onload_packages:
+  - onload-kmod-{{ ansible_kernel.split('.')[:-1] | join('.') }}
+
+onload_solarflare_gpgkeys:
+  - RPM-GPG-KEY-solarflare-aoe
+  - RPM-GPG-KEY-solarflare-capture
+  - RPM-GPG-KEY-solarflare-netdriver
+  - RPM-GPG-KEY-solarflare-serverlock
+  - RPM-GPG-KEY-solarflare-sfptpd
+  - RPM-GPG-KEY-solarflare-sfutils
+  - RPM-GPG-KEY-solarflare-thirdparty
+...
