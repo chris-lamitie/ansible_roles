@@ -1,0 +1,28 @@
+---
+# tasks file for roles/onload
+- name: Run onload-kmod.yml
+  ansible.builtin.include_tasks:
+    file: onload-kmod.yml
+    apply:
+      tags:
+        - onload
+  when:
+    - onload_managed | bool
+    - onload_kmod | bool
+    - ansible_virtualization_role != 'guest'
+  tags:
+    - onload
+
+- name: Run onload-dkms.yml
+  ansible.builtin.include_tasks:
+    file: onload-dkms.yml
+    apply:
+      tags:
+        - onload
+  when:
+    - onload_managed | bool
+    - onload_dkms | bool
+    - ansible_virtualization_role != 'guest'
+  tags:
+    - onload
+...
