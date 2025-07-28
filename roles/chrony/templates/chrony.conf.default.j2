@@ -1,0 +1,80 @@
+# {{ ansible_managed }}
+# This is chrony.conf.
+
+{% if not sfptpd_managed or (sfptpd_managed and sfptpd_mode == 'chrony') %}
+{% for time_server in chrony_time_servers %}
+{{ time_server }}{% if chrony_iburst %} iburst{% endif %}
+
+{% endfor %}
+{% endif %}
+
+# Use NTP servers from DHCP.
+#sourcedir /run/chrony-dhcp
+
+# Record the rate at which the system clock gains/losses time.
+driftfile {{ chrony_driftfile }}
+{% if not sfptpd_managed %}
+# In first {{ chrony_makestep_updates }} updates step the system clock instead of slew
+# if the adjustment is larger than {{ chrony_makestep_threshold }} seconds.
+makestep {{ chrony_makestep_updates }} {{ chrony_makestep_threshold }}
+
+{% endif %}
+{% if chrony_rtcsync %}
+# Enable kernel RTC synchronization.
+rtcsync
+{% endif %}
+
+# Enable hardware timestamping on all interfaces that support it.
+#hwtimestamp *
+
+# Increase the minimum number of selectable sources required to adjust
+# the system clock.
+#minsources 2
+
+{% if chrony_ntp_client_access_ip is defined and chrony_ntp_client_access_ip | length > 0 %}
+# Allow NTP client access from local network.
+allow {{ chrony_ntp_client_access_ip }}
+{% endif %}
+
+# Require authentication (nts or key option) for all NTP sources.
+#authselectmode require
+
+# Specify file containing keys for NTP authentication.
+#keyfile /etc/chrony.keys
+
+# Save NTS keys and cookies.
+#ntsdumpdir /var/lib/chrony
+
+# Insert/delete leap seconds by slewing instead of stepping.
+#leapsecmode slew
+
+# Configuring leap second file
+leapsectz {{ chrony_leapsectz }}
+{% if not sfptpd_managed %}
+
+# Ignore stratum in source selection.
+stratumweight 0
+
+{% endif %}
+{% if sfptpd_managed %}
+
+# Serve time even if not synchronized to a time source.
+local stratum 10
+
+{% endif %}
+{% if chrony_noclientlog %}
+# Disable logging of client accesses.
+noclientlog
+{% endif %}
+
+# Send a message to syslog if a clock adjustment is larger than {{ chrony_logchange_threshold }} seconds.
+logchange {{ chrony_logchange_threshold }}
+
+# Specify directory for log files.
+logdir {{ chrony_logdir }}
+
+# Log measurements statistics.
+log measurements statistics tracking
+
+# Include additional configuration files from /etc/chrony.d
+#include /etc/chrony.d/*.conf
