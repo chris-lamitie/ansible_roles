@@ -1,0 +1,18 @@
+---
+# handlers file for roles/chrony
+- name: Restart chrony
+  ansible.builtin.service:
+    name: chronyd
+    state: restarted
+    daemon_reload: true
+  become: true
+  tags: chrony
+
+- name: Disable sfptpd
+  ansible.builtin.service:
+    name: sfptpd
+    state: stopped
+    enabled: false
+  become: true
+  tags: chrony
+...
