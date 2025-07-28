@@ -1,0 +1,64 @@
+---
+# onload-dkms.yml tasks
+- name: onload-dkms | Import Solarflare GPG keys
+  ansible.builtin.rpm_key:
+    state: present
+    key: "http://repos.consolidatedtrading.dom/ct_rpms/{{ onload_gpg_key }}"
+  loop: "{{ onload_solarflare_gpgkeys }}"
+  loop_control:
+    loop_var: onload_gpg_key
+  become: true
+
+- name: onload-dkms | Gather package facts
+  ansible.builtin.package_facts:
+    manager: auto
+
+- name: onload-dkms | Remove onload and related packages
+  ansible.builtin.package:
+    name: "{{ onload_packages_to_remove_item }}"
+    state: absent
+  loop: "{{ onload_packages_to_remove }}"
+  loop_control:
+    loop_var: onload_packages_to_remove_item
+  when: onload_packages_to_remove | length > 0
+  vars:
+    onload_packages_to_remove: >
+      {{
+        ansible_facts.packages.keys() | select('match', '^onload(-kmod.*)?$') | list
+      }}
+
+- name: onload-dkms | Debug onload_dkms_prereqs when verbosity is 1+
+  ansible.builtin.debug:
+    var: onload_dkms_prereqs
+    verbosity: 1
+
+- name: onload-dkms | Install onload prerequisite packages
+  ansible.builtin.dnf:
+    name: "{{ onload_dkms_prereqs }}"
+    state: present
+  register: onload_prereq_pkgs_results
+  become: true
+  when:
+    - ansible_distribution_file_variety == "RedHat"
+    - ansible_distribution_major_version >= '8'
+
+- name: onload-dkms | Debug onload_dkms_prereqs when verbosity is 1+
+  ansible.builtin.debug:
+    var: onload_prereq_pkgs_results
+    verbosity: 1
+
+- name: onload-dkms | Install onload-dkms packages
+  ansible.builtin.dnf:
+    name: "{{ onload_packages_to_install_item }}"
+    state: present
+  loop: "{{ onload_packages_to_install }}"
+  loop_control:
+    loop_var: onload_packages_to_install_item
+  vars:
+    onload_packages_to_install:
+      - onload-dkms
+  become: true
+  when:
+    - ansible_distribution_file_variety == "RedHat"
+    - ansible_distribution_major_version >= '8'
+...
