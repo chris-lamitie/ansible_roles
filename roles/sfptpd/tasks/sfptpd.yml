@@ -1,0 +1,61 @@
+---
+# sub-tasks for sfptpd role
+- name: sfptpd | Install sfptpd packages
+  ansible.builtin.dnf:
+    name: "{{ sfptpd_packages }}"
+    disable_gpg_check: true
+    state: present
+  become: true
+  when:
+    - ansible_distribution_file_variety == "RedHat"
+    - ansible_distribution_major_version >= '8'
+
+- name: sfptpd | Create sfptpd service file
+  ansible.builtin.template:
+    src: sfptpd.service.j2
+    dest: /etc/systemd/system/sfptpd.service
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  become: true
+  notify:
+    - Restart sfptpd
+
+- name: sfptpd | Configure sfptpd (active_sync)
+  ansible.builtin.template:
+    src: sfptpd.conf-active_sync.j2
+    dest: /etc/sfptpd.conf
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  become: true
+  when:
+    - sfptpd_mode == 'active'
+  notify:
+    - Restart sfptpd
+
+- name: sfptpd | Configure sfptpd (system - chrony)
+  ansible.builtin.template:
+    src: sfptpd.conf-chrony_sync.j2
+    dest: /etc/sfptpd.conf
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  become: true
+  when:
+    - sfptpd_mode == 'chrony'
+  notify:
+    - Restart sfptpd
+
+- name: sfptpd | Configure logrotate
+  ansible.builtin.copy:
+    src: sfptpd.logrotate
+    dest: /etc/logrotate.d/sfptpd
+    owner: root
+    group: root
+    mode: 0644
+  become: true
+...
