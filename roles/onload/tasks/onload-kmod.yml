@@ -1,0 +1,126 @@
+---
+# tasks file for roles/onload
+- name: onload-kmod | Gather package facts
+  ansible.builtin.package_facts:
+    manager: auto
+
+- name: onload-kmod | Import Solarflare GPG keys
+  ansible.builtin.rpm_key:
+    state: present
+    key: "http://repos.consolidatedtrading.dom/ct_rpms/{{ onload_gpg_key }}"
+  loop: "{{ onload_solarflare_gpgkeys }}"
+  loop_control:
+    loop_var: onload_gpg_key
+  become: true
+
+- name: onload-kmod | Set the expected onload-kmod package name for the current kernel
+  ansible.builtin.set_fact:
+    onload_kmod_pkg_to_install: "onload-kmod-{{ ansible_kernel.split('.')[:-1] | join('.') }}"
+
+- name: onload-kmod | Debug onload_kmod_pkg_to_install when verbosity is 1+
+  ansible.builtin.debug:
+    var: onload_kmod_pkg_to_install
+    verbosity: 1
+
+- name: onload-kmod | Find installed onload-kmod packages not matching target
+  ansible.builtin.set_fact:
+    onload_packages_to_remove: "{{ ansible_facts.packages | dict2items | selectattr('key', 'match', '^onload-kmod') | rejectattr('key', 'equalto', onload_kmod_pkg_to_install) | map(attribute='key') | list }}"
+
+- name: onload-kmod | Debug onload_packages_to_remove when verbosity is 1+
+  ansible.builtin.debug:
+    var: onload_packages_to_remove
+    verbosity: 1
+
+- name: onload-kmod | Unload onload modules
+  ansible.builtin.command:
+    cmd: onload_tool unload
+  when: onload_packages_to_remove | length > 0
+  become: true
+  register: unload_result
+  changed_when: unload_result.stdout | length > 0  # Change based on output
+
+- name: onload-kmod | Remove old onload-kmod packages
+  ansible.builtin.package:
+    name: "{{ onload_packages_to_remove }}"
+    state: absent
+  when: onload_packages_to_remove | length > 0
+  become: true
+  register: packages_removed
+
+- name: onload-kmod | Install onload prerequisite packages el7
+  ansible.builtin.yum:
+    name: "{{ onload_kmod_prereqs }}"
+    state: present
+    update_cache: true
+  become: true
+  when:
+    - onload_kmod_pkg_to_install not in ansible_facts.packages
+    - ansible_distribution_file_variety == "RedHat"
+    - ansible_distribution_major_version == '7'
+
+- name: onload-kmod | Install onload packages el7
+  ansible.builtin.yum:
+    name: "{{ onload_packages }}"
+    state: present
+    update_cache: true
+  become: true
+  register: onload_installed
+  when:
+    - onload_kmod_pkg_to_install not in ansible_facts.packages
+    - ansible_distribution_file_variety == "RedHat"
+    - ansible_distribution_major_version == '7'
+
+- name: onload-kmod | Install onload prerequisite packages el8+
+  ansible.builtin.dnf:
+    name: "{{ onload_kmod_prereqs }}"
+    state: present
+    update_cache: true
+  become: true
+  when:
+    - onload_kmod_pkg_to_install not in ansible_facts.packages
+    - ansible_distribution_file_variety == "RedHat"
+    - ansible_distribution_major_version >= '8'
+
+- name: onload-kmod | Install onload packages el8+
+  ansible.builtin.dnf:
+    name: "{{ onload_packages }}"
+    state: present
+    update_cache: true
+  become: true
+  register: onload_installed
+  when:
+    - onload_kmod_pkg_to_install not in ansible_facts.packages
+    - ansible_distribution_file_variety == "RedHat"
+    - ansible_distribution_major_version >= '8'
+
+- name: onload-kmod | Debug onload_installed when verbosity is 1+
+  ansible.builtin.debug:
+    var: onload_installed
+    verbosity: 1
+
+- name: onload-kmod | Check if onload module is already loaded
+  ansible.builtin.find:
+    paths: /proc/
+    patterns: "modules, drivers"
+    file_type: file
+    use_regex: true
+    contains: '^onload'
+  changed_when: false
+  register: grep_onload_module
+
+- name: onload-kmod | Debug grep_onload_module when verbosity is 1+
+  ansible.builtin.debug:
+    var: grep_onload_module
+    verbosity: 1
+
+# CentOS7 kernels and the older driver can break the network stack when running onload_tool reload, best do that manually and reboot.
+- name: onload-kmod | Onload module reload
+  ansible.builtin.command:
+    cmd: onload_tool reload
+  become: true
+  when:
+    - grep_onload_module.matched == 0 or onload_installed.changed
+    - ansible_distribution_file_variety == "RedHat"
+    - ansible_distribution_major_version >= '8'
+  changed_when: grep_onload_module.matched == 0 or onload_installed.changed
+...
