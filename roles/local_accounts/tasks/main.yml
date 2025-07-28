@@ -38,17 +38,4 @@
   tags:
     - local_accounts
     - bashrc
-
-- name: Manage .ctdb files
-  ansible.builtin.include_tasks:
-    file: ctdb.yml
-    apply:
-      tags:
-        - local_accounts
-        - ctdb
-  when:
-    - local_accounts_managed | bool
-  tags:
-    - local_accounts
-    - ctdb
 ...
