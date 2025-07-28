@@ -1,0 +1,42 @@
+# {{ ansible_managed}}
+# Configuration for sfptp with chrony sync
+
+#
+# Generic Configuration
+#
+[general]
+# Create a freerun Synchronization Module instance.
+sync_module freerun fr1
+
+# Specify whether messages are sent to the syslog, stderr or to a file. By default
+# messages are sent to stderr.
+message_log syslog
+
+# Specify whether stats logging is enabled and whether stats are sent to stdout
+# or to a file
+stats_log off
+
+# Never adjust the system clock. This enables co-existence with software that
+# itself controls the system clock where this behaviour cannot yet be
+# controlled at runtime, such as chronyd (ntpd provides a mechanism enabling it
+# to be controlled by sfptpd).
+clock_readonly system
+
+# Specifies whether to attempt using hardware timestamps on non-Xilinx
+# hardware. Its driver must support raw hardware timestamps and expose a PHC
+# device adjustable via clock_adjtime (adjtimex).
+#non_xilinx_nics off
+
+# NB: avoid running with 'daemon' configuration on systemd or sfptpd will be
+# terminated
+daemon
+
+#
+# Freerun Configuration
+#
+[fr1]
+
+# Specify the clock to use as local reference by interface.
+interface system
+
+# fin
