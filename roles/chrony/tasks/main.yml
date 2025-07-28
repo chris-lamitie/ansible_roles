@@ -1,0 +1,11 @@
+---
+# tasks file for roles/chrony
+- name: Manage chrony
+  ansible.builtin.include_tasks:
+    file: chrony.yml
+    apply:
+      tags: chrony
+  when:
+    - chrony_managed | bool
+  tags: chrony
+...
