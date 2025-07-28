@@ -1,0 +1,19 @@
+---
+# roles/local_accounts/tasks/bashrc.yml
+- name: bashrc | Add bashrc lines to ~/.bashrc
+  ansible.builtin.lineinfile:
+    path: "{{ local_accounts_bashrc_line.0.home_dir | default('/home/' + local_accounts_bashrc_line.0.username) }}/.bashrc"
+    line: "{{ local_accounts_bashrc_line.1 }}"
+    state: present
+    create: true
+    owner: "{{ local_accounts_bashrc_line.0.username }}"
+    mode: '0644'
+    backup: true
+  become: true
+  no_log: true
+  when: local_accounts_bashrc_line.0.manage_bashrc | default(false)
+  loop: "{{ (local_accounts_default_users + local_accounts_additional_users) | subelements('bashrc_lines', skip_missing=True) }}"
+  loop_control:
+    loop_var: local_accounts_bashrc_line
+    label: "{{ local_accounts_bashrc_line.0.username }} -> {{ local_accounts_bashrc_line.1 }}"
+...
