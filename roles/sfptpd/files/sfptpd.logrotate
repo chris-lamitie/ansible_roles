@@ -1,0 +1,11 @@
+/var/log/sfptpd_stats.log {
+  rotate 30
+  compress
+  daily
+  dateext
+  dateformat -%Y%m%d
+  sharedscripts
+  postrotate
+    /sbin/sfptpdctl logrotate || true
+  endscript
+}
