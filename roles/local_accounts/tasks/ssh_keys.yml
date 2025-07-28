@@ -1,0 +1,56 @@
+---
+# roles/local_accounts/tasks/ssh_keys.yml
+# IMPORTAN NOTE: SSH keys are highly confidential items, no_log: true should be on at all times, for all tasks. Set to false when debugging and when using debug values.
+- name: ssh_keys | Combine default and additional key vars
+  ansible.builtin.set_fact:
+    ssh_keys_to_install: "{{ local_accounts_default_ssh_keys + local_accounts_additional_ssh_keys }}"
+  no_log: true
+
+# ansible.posix.authorized_key also manages the dir for the ssh key, whose default is true, so we can skip creating a .ssh dir.
+- name: ssh_keys | Add SSH authorized keys
+  ansible.posix.authorized_key:
+    user: "{{ local_accounts_ssh_keys_item.0.username }}"
+    key: "{{ local_accounts_ssh_keys_item.1 }}"
+    state: "{{ local_accounts_ssh_keys_item.0.state | default('present') }}"
+    path: "{{ local_accounts_ssh_keys_item.0.path | default(omit) }}"
+    manage_dir: "{{ local_accounts_ssh_keys_item.0.manage_dir | default(true) }}"
+  become: true
+  no_log: true
+  when: local_accounts_ssh_keys_item.0.username is defined
+  with_subelements:
+    - "{{ local_accounts_default_ssh_keys + local_accounts_additional_ssh_keys }}"
+    - authorized_keys
+  loop_control:
+    loop_var: local_accounts_ssh_keys_item
+    label: "{{ local_accounts_ssh_keys_item.0.username }}:{{ local_accounts_ssh_keys_item.1 }}"
+
+- name: ssh_keys | Create SSH private key files
+  ansible.builtin.template:
+    src: ssh_private_key.j2
+    dest: "/home/{{ local_accounts_ssh_keys_item.username }}/.ssh/id_{{ local_accounts_ssh_keys_item.key_type | default('rsa') }}" # Added default for key_type if not defined
+    mode: '0600'
+    owner: "{{ local_accounts_ssh_keys_item.username }}"
+    group: "{{ local_accounts_ssh_keys_item.username }}"
+  become: true
+  no_log: true
+  when: local_accounts_ssh_keys_item.private_key is defined # Condition applied directly to the loop item
+  loop: "{{ local_accounts_default_ssh_keys + local_accounts_additional_ssh_keys }}"
+  loop_control:
+    loop_var: local_accounts_ssh_keys_item
+    label: "{{ local_accounts_ssh_keys_item.username }}"
+
+- name: ssh_keys | Create SSH public key files
+  ansible.builtin.template:
+    src: ssh_public_key.j2
+    dest: "/home/{{ local_accounts_ssh_keys_item.username }}/.ssh/id_{{ local_accounts_ssh_keys_item.key_type | default('rsa') }}.pub" # Added default for key_type if not defined
+    mode: '0644'
+    owner: "{{ local_accounts_ssh_keys_item.username }}"
+    group: "{{ local_accounts_ssh_keys_item.username }}"
+  become: true
+  no_log: true
+  when: local_accounts_ssh_keys_item.public_key is defined # Condition applied directly to the loop item
+  loop: "{{ local_accounts_default_ssh_keys + local_accounts_additional_ssh_keys }}"
+  loop_control:
+    loop_var: local_accounts_ssh_keys_item
+    label: "{{ local_accounts_ssh_keys_item.username }}"
+...
