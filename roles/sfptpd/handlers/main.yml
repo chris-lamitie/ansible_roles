@@ -1,0 +1,11 @@
+---
+# handlers file for roles/sfptpd
+- name: Restart sfptpd
+  ansible.builtin.systemd_service:
+    name: sfptpd
+    state: restarted
+    enabled: true
+    daemon_reload: true
+  become: true
+  tags: sfptpd
+...
