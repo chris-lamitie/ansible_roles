@@ -1,0 +1,9 @@
+---
+# defaults file for roles/sfptpd
+sfptpd_managed: false
+sfptpd_packages:
+  - sfptpd
+sfptpd_nic: []
+sfptpd_affinity: []
+sfptpd_mode: chrony
+...
