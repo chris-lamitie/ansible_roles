@@ -1,0 +1,11 @@
+---
+# tasks file for roles/sfptpd
+- name: Manage sfptpd
+  ansible.builtin.include_tasks:
+    file: sfptpd.yml
+    apply:
+      tags: sfptpd
+  when:
+    - sfptpd_managed | bool
+  tags: sfptpd
+...
