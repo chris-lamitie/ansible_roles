@@ -1,0 +1,16 @@
+---
+# defaults file for roles/chrony
+chrony_managed: false
+chrony_time_servers:
+  - "pool 2.rocky.pool.ntp.org"
+chrony_iburst: true
+chrony_driftfile: "/var/lib/chrony/drift"
+chrony_rtcsync: true
+chrony_makestep_threshold: 10
+chrony_makestep_updates: 3
+chrony_leapsectz: "right/UTC"
+chrony_noclientlog: true
+chrony_logchange_threshold: 0.05
+chrony_logdir: "/var/log/chrony"
+chrony_ntp_client_access_ip: ""
+...
